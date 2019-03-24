@@ -41,7 +41,7 @@ func (c *blockChecker) handleFunctionCall(call *expr.FunctionCall) {
 
 func (c *blockChecker) checkDefine(define *expr.FunctionCall) {
 	if len(define.Arguments) != 2 {
-		c.ctxt.Report(define.Arguments[2], linter.LevelWarning, "don't use case_insensitive argument")
+		c.ctxt.Report(define.Arguments[2], linter.LevelWarning, "sloppyArg", "don't use case_insensitive argument")
 	}
 }
 
@@ -52,7 +52,7 @@ func (c *blockChecker) checkStrpos(call *expr.FunctionCall) {
 	str := call.Arguments[0].(*node.Argument).Expr
 	substr := call.Arguments[1].(*node.Argument).Expr
 	if c.isStringLit(str) && !c.isStringLit(substr) {
-		c.ctxt.Report(call, linter.LevelWarning, "suspicious args order")
+		c.ctxt.Report(call, linter.LevelWarning, "argOrder", "suspicious args order")
 	}
 }
 
