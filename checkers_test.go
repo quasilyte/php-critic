@@ -12,6 +12,35 @@ import (
 	"github.com/z7zmey/php-parser/node"
 )
 
+func TestBadCondAnd(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	$x = 10;
+	$_ = $x < -5 && $x > 5;
+	$_ = ($x < -5) && $x > 5;
+	$_ = $x < -5 && ($x > 5);
+	$_ = $x < -5+1 && ($x > 5+1);
+	$_ = $x == 4 && $x == 5;
+	`)
+
+	matchReports(t, reports,
+		`always false condition`,
+		`always false condition`,
+		`always false condition`,
+		`always false condition`,
+		`always false condition`)
+}
+
+func TestBadCondOr(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	$x = 10;
+	$_ = $x != 10 || $x != 5;
+	$_ = $x != 9 || $x != 9;
+	`)
+
+	matchReports(t, reports,
+		`always true condition`)
+}
+
 func TestArgOrder(t *testing.T) {
 	reports := multiFileReports(t, `<?php
 	/** @linter disable */

@@ -5,10 +5,16 @@ import (
 	"github.com/VKCOM/noverify/src/meta"
 	"github.com/z7zmey/php-parser/node"
 	"github.com/z7zmey/php-parser/node/expr"
+	"github.com/z7zmey/php-parser/node/expr/binary"
 	"github.com/z7zmey/php-parser/node/name"
 	"github.com/z7zmey/php-parser/node/scalar"
 	"github.com/z7zmey/php-parser/walker"
 )
+
+// TODO(quasilyte): badCond:
+// - find redundant expressions, like `a == b && a == b`.
+// - solve Equal-vs-Identical question
+// - handle non-int const exprs
 
 type blockChecker struct {
 	ctxt linter.BlockContext
@@ -22,7 +28,88 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 	switch n := w.(type) {
 	case *expr.FunctionCall:
 		c.handleFunctionCall(n)
+	case *binary.BooleanAnd:
+		c.handleBooleanAnd(n)
+	case *binary.BooleanOr:
+		c.handleBooleanOr(n)
 	}
+}
+
+func (c *blockChecker) handleBooleanOr(cond *binary.BooleanOr) {
+	lhs, ok := cond.Left.(*binary.NotEqual)
+	if !ok {
+		return
+	}
+	rhs, ok := cond.Right.(*binary.NotEqual)
+	if !ok {
+		return
+	}
+	if !sameSimpleExpr(lhs.Left, rhs.Left) {
+		return
+	}
+
+	a, ok1 := constIntValue(lhs.Right)
+	b, ok2 := constIntValue(rhs.Right)
+	if ok1 && ok2 && a != b {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always true condition")
+	}
+}
+
+func (c *blockChecker) handleBooleanAndLtGt(cond *binary.BooleanAnd) {
+	lhs, ok := cond.Left.(*binary.Smaller)
+	if !ok {
+		return
+	}
+	rhs, ok := cond.Right.(*binary.Greater)
+	if !ok {
+		return
+	}
+	if !sameSimpleExpr(lhs.Left, rhs.Left) {
+		return
+	}
+
+	a, ok := constIntValue(lhs.Right)
+	if !ok {
+		return
+	}
+	b, ok := constIntValue(rhs.Right)
+	if !ok {
+		return
+	}
+	if a < b {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
+	}
+}
+
+func (c *blockChecker) handleBooleanAndEqEq(cond *binary.BooleanAnd) {
+	lhs, ok := cond.Left.(*binary.Equal)
+	if !ok {
+		return
+	}
+	rhs, ok := cond.Right.(*binary.Equal)
+	if !ok {
+		return
+	}
+	if !sameSimpleExpr(lhs.Left, rhs.Left) {
+		return
+	}
+
+	a, ok := constIntValue(lhs.Right)
+	if !ok {
+		return
+	}
+	b, ok := constIntValue(rhs.Right)
+	if !ok {
+		return
+	}
+	if a != b {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
+	}
+}
+
+func (c *blockChecker) handleBooleanAnd(cond *binary.BooleanAnd) {
+	c.handleBooleanAndLtGt(cond)
+	c.handleBooleanAndEqEq(cond)
 }
 
 func (c *blockChecker) handleFunctionCall(call *expr.FunctionCall) {
