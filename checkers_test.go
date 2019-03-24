@@ -12,6 +12,19 @@ import (
 	"github.com/z7zmey/php-parser/node"
 )
 
+func TestArgOrder(t *testing.T) {
+	reports := multiFileReports(t, `<?php
+	/** @linter disable */
+	function strpos($str, $substr) {};
+	`, `<?php
+	$str = "abc";
+	$_ = strpos("http://", $str); // Bad
+	$_ = strpos($str, "http://"); // OK
+	`)
+
+	matchReports(t, reports, "suspicious args order")
+}
+
 func TestDefineArg3(t *testing.T) {
 	reports := multiFileReports(t, `<?php
 	/** @linter disable */
