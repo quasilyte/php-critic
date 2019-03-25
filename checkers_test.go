@@ -14,12 +14,14 @@ import (
 
 func TestBadCondAnd(t *testing.T) {
 	reports := singleFileReports(t, `<?php
+	namespace Foo;
+	const FIVE = 5;
 	$x = 10;
 	$_ = $x < -5 && $x > 5;
 	$_ = ($x < -5) && $x > 5;
 	$_ = $x < -5 && ($x > 5);
 	$_ = $x < -5+1 && ($x > 5+1);
-	$_ = $x == 4 && $x == 5;
+	$_ = $x == 4 && $x == FIVE;
 	`)
 
 	matchReports(t, reports,

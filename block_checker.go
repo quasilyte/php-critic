@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/VKCOM/noverify/src/linter"
 	"github.com/VKCOM/noverify/src/meta"
+	"github.com/VKCOM/noverify/src/state"
 	"github.com/z7zmey/php-parser/node"
 	"github.com/z7zmey/php-parser/node/expr"
 	"github.com/z7zmey/php-parser/node/expr/binary"
@@ -19,13 +20,19 @@ import (
 
 type blockChecker struct {
 	ctxt linter.BlockContext
+	mi   *metainfoExt
 }
 
 func (c *blockChecker) AfterEnterNode(w walker.Walkable)  {}
 func (c *blockChecker) BeforeLeaveNode(w walker.Walkable) {}
-func (c *blockChecker) AfterLeaveNode(w walker.Walkable)  {}
+
+func (c *blockChecker) AfterLeaveNode(w walker.Walkable) {
+	state.LeaveNode(c.mi.st, w)
+}
 
 func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
+	state.EnterNode(c.mi.st, w)
+
 	switch n := w.(type) {
 	case *expr.FunctionCall:
 		c.handleFunctionCall(n)
@@ -49,8 +56,8 @@ func (c *blockChecker) handleBooleanOr(cond *binary.BooleanOr) {
 		return
 	}
 
-	a, ok1 := constIntValue(lhs.Right)
-	b, ok2 := constIntValue(rhs.Right)
+	a, ok1 := constIntValue(c.mi, lhs.Right)
+	b, ok2 := constIntValue(c.mi, rhs.Right)
 	if ok1 && ok2 && a != b {
 		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always true condition")
 	}
@@ -69,11 +76,11 @@ func (c *blockChecker) handleBooleanAndLtGt(cond *binary.BooleanAnd) {
 		return
 	}
 
-	a, ok := constIntValue(lhs.Right)
+	a, ok := constIntValue(c.mi, lhs.Right)
 	if !ok {
 		return
 	}
-	b, ok := constIntValue(rhs.Right)
+	b, ok := constIntValue(c.mi, rhs.Right)
 	if !ok {
 		return
 	}
@@ -95,11 +102,11 @@ func (c *blockChecker) handleBooleanAndEqEq(cond *binary.BooleanAnd) {
 		return
 	}
 
-	a, ok := constIntValue(lhs.Right)
+	a, ok := constIntValue(c.mi, lhs.Right)
 	if !ok {
 		return
 	}
-	b, ok := constIntValue(rhs.Right)
+	b, ok := constIntValue(c.mi, rhs.Right)
 	if !ok {
 		return
 	}
