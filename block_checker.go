@@ -15,6 +15,7 @@ import (
 // - find redundant expressions, like `a == b && a == b`.
 // - solve Equal-vs-Identical question
 // - handle non-int const exprs
+// - handle consts like false, null, etc
 
 type blockChecker struct {
 	ctxt linter.BlockContext
