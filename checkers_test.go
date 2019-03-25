@@ -12,6 +12,29 @@ import (
 	"github.com/z7zmey/php-parser/node"
 )
 
+func TestDupSubExpr(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	$xs = [1, 2];
+	$i = 0;
+	$_ = 0 == 0;
+	$_ = 0 === 0;
+	$_ = $xs[$i] < $xs[$i];
+	$_ = $i >= $i;
+	$_ = $i - $i;
+	$_ = $i / $i;
+	$_ = $i % $i;
+	`)
+
+	matchReports(t, reports,
+		`suspiciously duplicated LHS and RHS of '=='`,
+		`suspiciously duplicated LHS and RHS of '==='`,
+		`suspiciously duplicated LHS and RHS of '<'`,
+		`suspiciously duplicated LHS and RHS of '>='`,
+		`suspiciously duplicated LHS and RHS of '-'`,
+		`suspiciously duplicated LHS and RHS of '/'`,
+		`suspiciously duplicated LHS and RHS of '%'`)
+}
+
 func TestBadCondAndConst(t *testing.T) {
 	reports := singleFileReports(t, `<?php
 	namespace Foo;

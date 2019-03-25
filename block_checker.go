@@ -36,10 +36,38 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 	switch n := w.(type) {
 	case *expr.FunctionCall:
 		c.handleFunctionCall(n)
+	case *binary.Div:
+		c.handleDupSubExpr(n, n.Left, n.Right, "/")
+	case *binary.Mod:
+		c.handleDupSubExpr(n, n.Left, n.Right, "%")
+	case *binary.Minus:
+		c.handleDupSubExpr(n, n.Left, n.Right, "-")
+	case *binary.NotIdentical:
+		c.handleDupSubExpr(n, n.Left, n.Right, "!==")
+	case *binary.NotEqual:
+		c.handleDupSubExpr(n, n.Left, n.Right, "!=")
+	case *binary.Identical:
+		c.handleDupSubExpr(n, n.Left, n.Right, "===")
+	case *binary.Equal:
+		c.handleDupSubExpr(n, n.Left, n.Right, "==")
+	case *binary.Smaller:
+		c.handleDupSubExpr(n, n.Left, n.Right, "<")
+	case *binary.SmallerOrEqual:
+		c.handleDupSubExpr(n, n.Left, n.Right, "<=")
+	case *binary.GreaterOrEqual:
+		c.handleDupSubExpr(n, n.Left, n.Right, ">=")
+	case *binary.Greater:
+		c.handleDupSubExpr(n, n.Left, n.Right, ">")
 	case *binary.BooleanAnd:
 		c.handleBooleanAnd(n)
 	case *binary.BooleanOr:
 		c.handleBooleanOr(n)
+	}
+}
+
+func (c *blockChecker) handleDupSubExpr(n node.Node, lhs, rhs node.Node, op string) {
+	if sameSimpleExpr(lhs, rhs) {
+		c.ctxt.Report(n, linter.LevelWarning, "dupSubExpr", "suspiciously duplicated LHS and RHS of '%s'", op)
 	}
 }
 

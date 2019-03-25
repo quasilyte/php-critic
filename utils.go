@@ -77,6 +77,11 @@ func sameSimpleExpr(a, b node.Node) bool {
 	// TODO(quasilyte): handle const exprs?
 
 	switch a := a.(type) {
+	case *expr.ArrayDimFetch:
+		b, ok := b.(*expr.ArrayDimFetch)
+		return ok &&
+			sameSimpleExpr(a.Variable, b.Variable) &&
+			sameSimpleExpr(a.Dim, b.Dim)
 	case *expr.Variable:
 		b, ok := b.(*expr.Variable)
 		return ok && sameSimpleExpr(a.VarName, b.VarName)
