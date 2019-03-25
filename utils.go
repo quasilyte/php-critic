@@ -2,6 +2,7 @@ package main
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/VKCOM/noverify/src/meta"
 	"github.com/z7zmey/php-parser/node"
@@ -10,6 +11,56 @@ import (
 	"github.com/z7zmey/php-parser/node/name"
 	"github.com/z7zmey/php-parser/node/scalar"
 )
+
+func isDynamicString(lit *scalar.String) bool {
+	if !strings.HasPrefix(lit.Value, `"`) {
+		return false
+	}
+	dollars := strings.Count(lit.Value, "$")
+	escapedDollars := strings.Count(lit.Value, `\$`)
+	return dollars != escapedDollars
+}
+
+func constFold(mi *metainfoExt, e node.Node) Constant {
+	switch e := e.(type) {
+	case *binary.Smaller:
+		return constLessThan(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *binary.Greater:
+		return constGreaterThan(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *binary.BooleanAnd:
+		return constAnd(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *binary.BooleanOr:
+		return constOr(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *binary.Equal:
+		return constEqual(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *binary.Identical:
+		return constIdentical(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *binary.Plus:
+		return constAdd(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *expr.UnaryMinus:
+		return constNegate(constFold(mi, e.Expr))
+	case *expr.ConstFetch:
+		name := nodeToNameString(mi.st, e.Constant)
+		return constFold(mi, mi.constValue[name])
+	case *scalar.String:
+		if isDynamicString(e) {
+			return UnknownConst{}
+		}
+		unquoted := e.Value[1 : len(e.Value)-1]
+		return StringConst(unquoted)
+	case *scalar.Dnumber:
+		v, err := strconv.ParseFloat(e.Value, 64)
+		if err == nil {
+			return FloatConst(v)
+		}
+	case *scalar.Lnumber:
+		v, err := strconv.ParseInt(e.Value, 10, 64)
+		if err == nil {
+			return IntConst(v)
+		}
+	}
+	return UnknownConst{}
+}
 
 func nodeToNameString(st *meta.ClassParseState, n node.Node) string {
 	switch n := n.(type) {
@@ -42,24 +93,4 @@ func sameSimpleExpr(a, b node.Node) bool {
 			sameSimpleExpr(a.Right, b.Right)
 	}
 	return false
-}
-
-func constIntValue(mi *metainfoExt, x node.Node) (int, bool) {
-	switch x := x.(type) {
-	case *expr.UnaryMinus:
-		v, ok := constIntValue(mi, x.Expr)
-		return -v, ok
-	case *scalar.Lnumber:
-		v, err := strconv.Atoi(x.Value)
-		return v, err == nil
-	case *binary.Plus:
-		a, ok1 := constIntValue(mi, x.Left)
-		b, ok2 := constIntValue(mi, x.Right)
-		return a + b, ok1 && ok2
-	case *expr.ConstFetch:
-		name := nodeToNameString(mi.st, x.Constant)
-		return constIntValue(mi, mi.constValue[name])
-	default:
-		return 0, false
-	}
 }

@@ -44,6 +44,19 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 }
 
 func (c *blockChecker) handleBooleanOr(cond *binary.BooleanOr) {
+	cv, ok := constFold(c.mi, cond).(BoolConst)
+	if !ok {
+		c.handleBooleanOrNeqNeq(cond)
+		return
+	}
+	if cv {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always true condition")
+	} else {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
+	}
+}
+
+func (c *blockChecker) handleBooleanOrNeqNeq(cond *binary.BooleanOr) {
 	lhs, ok := cond.Left.(*binary.NotEqual)
 	if !ok {
 		return
@@ -56,9 +69,10 @@ func (c *blockChecker) handleBooleanOr(cond *binary.BooleanOr) {
 		return
 	}
 
-	a, ok1 := constIntValue(c.mi, lhs.Right)
-	b, ok2 := constIntValue(c.mi, rhs.Right)
-	if ok1 && ok2 && a != b {
+	x := constFold(c.mi, lhs.Right)
+	y := constFold(c.mi, rhs.Right)
+	res, ok := constEqual(x, y).(BoolConst)
+	if ok && !bool(res) {
 		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always true condition")
 	}
 }
@@ -76,15 +90,10 @@ func (c *blockChecker) handleBooleanAndLtGt(cond *binary.BooleanAnd) {
 		return
 	}
 
-	a, ok := constIntValue(c.mi, lhs.Right)
-	if !ok {
-		return
-	}
-	b, ok := constIntValue(c.mi, rhs.Right)
-	if !ok {
-		return
-	}
-	if a < b {
+	x := constFold(c.mi, lhs.Right)
+	y := constFold(c.mi, rhs.Right)
+	res, ok := constLessThan(x, y).(BoolConst)
+	if ok && bool(res) {
 		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
 	}
 }
@@ -102,22 +111,26 @@ func (c *blockChecker) handleBooleanAndEqEq(cond *binary.BooleanAnd) {
 		return
 	}
 
-	a, ok := constIntValue(c.mi, lhs.Right)
-	if !ok {
-		return
-	}
-	b, ok := constIntValue(c.mi, rhs.Right)
-	if !ok {
-		return
-	}
-	if a != b {
+	x := constFold(c.mi, lhs.Right)
+	y := constFold(c.mi, rhs.Right)
+	res, ok := constEqual(x, y).(BoolConst)
+	if ok && !bool(res) {
 		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
 	}
 }
 
 func (c *blockChecker) handleBooleanAnd(cond *binary.BooleanAnd) {
-	c.handleBooleanAndLtGt(cond)
-	c.handleBooleanAndEqEq(cond)
+	cv, ok := constFold(c.mi, cond).(BoolConst)
+	if !ok {
+		c.handleBooleanAndLtGt(cond)
+		c.handleBooleanAndEqEq(cond)
+		return
+	}
+	if cv {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always true condition")
+	} else {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
+	}
 }
 
 func (c *blockChecker) handleFunctionCall(call *expr.FunctionCall) {

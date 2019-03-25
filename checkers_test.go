@@ -12,6 +12,21 @@ import (
 	"github.com/z7zmey/php-parser/node"
 )
 
+func TestBadCondAndConst(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	namespace Foo;
+	const ONE = 1;
+	const MY_FALSE = (1 == 0);
+	$x = 10;
+	$_ = $x < (-5+2+ONE) && MY_FALSE;
+	$_ = 11 > 10 || MY_FALSE;
+	`)
+
+	matchReports(t, reports,
+		`always false condition`,
+		`always true condition`)
+}
+
 func TestBadCondAnd(t *testing.T) {
 	reports := singleFileReports(t, `<?php
 	namespace Foo;
