@@ -127,7 +127,10 @@ func (c *blockChecker) handleDoWhile(while *stmt.Do) {
 
 func (c *blockChecker) handleSwitch(swt *stmt.Switch) {
 	for _, cas := range swt.Cases {
-		cas := cas.(*stmt.Case)
+		cas, ok := cas.(*stmt.Case)
+		if !ok {
+			continue // Could be *stmt.Default
+		}
 		c.checkBadCond(cas.Cond)
 	}
 }
