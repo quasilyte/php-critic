@@ -12,6 +12,24 @@ import (
 	"github.com/z7zmey/php-parser/node"
 )
 
+func TestDupBranchBody(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	function f() {}
+	if (f()) {
+		$_ = 1;
+	} elseif (f()) {
+		$_ = 1;
+	} else {
+		$_ = 1;
+	}`)
+
+	// A little excessive, but OK.
+	matchReports(t, reports,
+		`duplicated <0> and <1> bodies`,
+		`duplicated <0> and <2> bodies`,
+		`duplicated <1> and <2> bodies`)
+}
+
 func TestDupSubExpr(t *testing.T) {
 	reports := singleFileReports(t, `<?php
 	$xs = [1, 2];

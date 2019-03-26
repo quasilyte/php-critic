@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -86,6 +87,10 @@ func nodeToNameString(st *meta.ClassParseState, n node.Node) string {
 	default:
 		return ""
 	}
+}
+
+func sameNode(a, b node.Node) bool {
+	return sameSimpleExpr(a, b) || reflect.DeepEqual(a, b)
 }
 
 func sameSimpleExpr(a, b node.Node) bool {

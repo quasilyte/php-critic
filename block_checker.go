@@ -90,6 +90,24 @@ func (c *blockChecker) handleIf(ifstmt *stmt.If) {
 	if !ifFalse {
 		c.checkBadCond(ifstmt.Cond)
 	}
+
+	bodies := make([]node.Node, 0, 2+len(ifstmt.ElseIf))
+	bodies = append(bodies, ifstmt.Stmt)
+	for _, elseif := range ifstmt.ElseIf {
+		bodies = append(bodies, elseif.(*stmt.ElseIf).Stmt)
+	}
+	if ifstmt.Else != nil {
+		bodies = append(bodies, ifstmt.Else.(*stmt.Else).Stmt)
+	}
+	for i, b1 := range bodies {
+		for j, b2 := range bodies[i+1:] {
+			j += i + 1
+			if sameNode(b1, b2) {
+				c.ctxt.Report(ifstmt, linter.LevelWarning, "dupBranchBody",
+					"duplicated <%d> and <%d> bodies", i, j)
+			}
+		}
+	}
 }
 
 func (c *blockChecker) handleWhile(while *stmt.While) {
