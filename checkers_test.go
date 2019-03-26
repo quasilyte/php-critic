@@ -39,6 +39,19 @@ func TestDupSubExpr(t *testing.T) {
 		`suspiciously duplicated LHS and RHS of '%'`)
 }
 
+func TestBadCondSwitch(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	switch (!(1 == 2)) {
+	case 1 == 2:
+	case 0 || 1:
+	}
+	`)
+
+	matchReports(t, reports,
+		`always false condition`,
+		`always true condition`)
+}
+
 func TestBadCondWhile(t *testing.T) {
 	reports := singleFileReports(t, `<?php
 	function define($name, $val) {};

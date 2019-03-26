@@ -63,6 +63,8 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 		c.handleWhile(n)
 	case *stmt.Do:
 		c.handleDoWhile(n)
+	case *stmt.Switch:
+		c.handleSwitch(n)
 	}
 }
 
@@ -103,6 +105,13 @@ func (c *blockChecker) handleWhile(while *stmt.While) {
 
 func (c *blockChecker) handleDoWhile(while *stmt.Do) {
 	c.checkBadCond(while.Cond)
+}
+
+func (c *blockChecker) handleSwitch(swt *stmt.Switch) {
+	for _, cas := range swt.Cases {
+		cas := cas.(*stmt.Case)
+		c.checkBadCond(cas.Cond)
+	}
 }
 
 func (c *blockChecker) handleDupSubExpr(n node.Node, lhs, rhs node.Node, op string) {
