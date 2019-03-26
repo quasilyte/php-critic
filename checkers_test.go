@@ -16,7 +16,10 @@ func TestDupSubExpr(t *testing.T) {
 	reports := singleFileReports(t, `<?php
 	$xs = [1, 2];
 	$i = 0;
+	$mask = 0xff;
 	$_ = 0 == 0;
+	$_ = $i & $mask == $mask;
+	$_ = ($i & $mask) == $mask; // This one is OK
 	$_ = 0 === 0;
 	$_ = $xs[$i] < $xs[$i];
 	$_ = $i >= $i;
@@ -26,6 +29,7 @@ func TestDupSubExpr(t *testing.T) {
 	`)
 
 	matchReports(t, reports,
+		`suspiciously duplicated LHS and RHS of '=='`,
 		`suspiciously duplicated LHS and RHS of '=='`,
 		`suspiciously duplicated LHS and RHS of '==='`,
 		`suspiciously duplicated LHS and RHS of '<'`,
