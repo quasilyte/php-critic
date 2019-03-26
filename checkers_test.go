@@ -39,6 +39,36 @@ func TestDupSubExpr(t *testing.T) {
 		`suspiciously duplicated LHS and RHS of '%'`)
 }
 
+func TestBadCondWhile(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	function define($name, $val) {};
+	define('true', !(1 == 2));
+	while (10 == 20) {}
+	while (11-1 == 9+1) {}
+	do {} while (true); // Not OK
+	while (true) {} // OK
+	`)
+
+	matchReports(t, reports,
+		`always false condition`,
+		`always true condition`,
+		`always true condition`)
+}
+
+func TestBadCondIf(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	function define($name, $val) {};
+	define('false', 1 == 2);
+	if (10 == 20) {}
+	if (10 == 9+1) {}
+	if (false) {} // Ignored on purpose, as a special case
+	`)
+
+	matchReports(t, reports,
+		`always false condition`,
+		`always true condition`)
+}
+
 func TestBadCondAndConst(t *testing.T) {
 	reports := singleFileReports(t, `<?php
 	namespace Foo;
@@ -46,7 +76,7 @@ func TestBadCondAndConst(t *testing.T) {
 	const MY_FALSE = (1 == 0);
 	$x = 10;
 	$_ = $x < (-5+2+ONE) && MY_FALSE;
-	$_ = 11 > 10 || MY_FALSE;
+ 	$_ = 11 > 10 || MY_FALSE;
 	`)
 
 	matchReports(t, reports,

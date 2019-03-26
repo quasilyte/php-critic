@@ -9,14 +9,9 @@ import (
 	"github.com/z7zmey/php-parser/node/expr/binary"
 	"github.com/z7zmey/php-parser/node/name"
 	"github.com/z7zmey/php-parser/node/scalar"
+	"github.com/z7zmey/php-parser/node/stmt"
 	"github.com/z7zmey/php-parser/walker"
 )
-
-// TODO(quasilyte): badCond:
-// - find redundant expressions, like `a == b && a == b`.
-// - solve Equal-vs-Identical question
-// - handle non-int const exprs
-// - handle consts like false, null, etc
 
 type blockChecker struct {
 	ctxt linter.BlockContext
@@ -62,7 +57,51 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 		c.handleBooleanAnd(n)
 	case *binary.BooleanOr:
 		c.handleBooleanOr(n)
+	case *stmt.If:
+		c.handleIf(n)
+	case *stmt.While:
+		c.handleWhile(n)
+	case *stmt.Do:
+		c.handleDoWhile(n)
 	}
+}
+
+func (c *blockChecker) checkBadCond(cond node.Node) {
+	cv, ok := constFold(c.mi, cond).(BoolConst)
+	if !ok {
+		return
+	}
+	if cv {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always true condition")
+	} else {
+		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
+	}
+}
+
+func (c *blockChecker) handleIf(ifstmt *stmt.If) {
+	// Recognize `if (false) {}` and skip it.
+	ifFalse := false
+	if fetch, ok := ifstmt.Cond.(*expr.ConstFetch); ok {
+		ifFalse = meta.NameNodeToString(fetch.Constant) == "false"
+	}
+	if !ifFalse {
+		c.checkBadCond(ifstmt.Cond)
+	}
+}
+
+func (c *blockChecker) handleWhile(while *stmt.While) {
+	// Recognize `while (true) {}` and skip it.
+	whileTrue := false
+	if fetch, ok := while.Cond.(*expr.ConstFetch); ok {
+		whileTrue = meta.NameNodeToString(fetch.Constant) == "true"
+	}
+	if !whileTrue {
+		c.checkBadCond(while.Cond)
+	}
+}
+
+func (c *blockChecker) handleDoWhile(while *stmt.Do) {
+	c.checkBadCond(while.Cond)
 }
 
 func (c *blockChecker) handleDupSubExpr(n node.Node, lhs, rhs node.Node, op string) {

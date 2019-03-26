@@ -23,25 +23,36 @@ func isDynamicString(lit *scalar.String) bool {
 
 func constFold(mi *metainfoExt, e node.Node) Constant {
 	switch e := e.(type) {
+	case *node.Argument:
+		return constFold(mi, e.Expr)
+
+	case *binary.Plus:
+		return constAdd(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *binary.Minus:
+		return constSub(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *expr.UnaryMinus:
+		return constNegate(constFold(mi, e.Expr))
+
 	case *binary.Smaller:
 		return constLessThan(constFold(mi, e.Left), constFold(mi, e.Right))
 	case *binary.Greater:
 		return constGreaterThan(constFold(mi, e.Left), constFold(mi, e.Right))
+	case *expr.BooleanNot:
+		return constNot(constFold(mi, e.Expr))
 	case *binary.BooleanAnd:
 		return constAnd(constFold(mi, e.Left), constFold(mi, e.Right))
 	case *binary.BooleanOr:
 		return constOr(constFold(mi, e.Left), constFold(mi, e.Right))
+
 	case *binary.Equal:
 		return constEqual(constFold(mi, e.Left), constFold(mi, e.Right))
 	case *binary.Identical:
 		return constIdentical(constFold(mi, e.Left), constFold(mi, e.Right))
-	case *binary.Plus:
-		return constAdd(constFold(mi, e.Left), constFold(mi, e.Right))
-	case *expr.UnaryMinus:
-		return constNegate(constFold(mi, e.Expr))
+
 	case *expr.ConstFetch:
 		name := nodeToNameString(mi.st, e.Constant)
 		return constFold(mi, mi.constValue[name])
+
 	case *scalar.String:
 		if isDynamicString(e) {
 			return UnknownConst{}
@@ -68,6 +79,10 @@ func nodeToNameString(st *meta.ClassParseState, n node.Node) string {
 		return st.Namespace + `\` + n.Value
 	case *name.Name:
 		return st.Namespace + `\` + meta.NameToString(n)
+	case *node.Argument:
+		return nodeToNameString(st, n.Expr)
+	case *scalar.String:
+		return `\` + n.Value[1:len(n.Value)-1] // Unquoted
 	default:
 		return ""
 	}

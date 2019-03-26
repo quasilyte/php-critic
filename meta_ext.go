@@ -5,6 +5,8 @@ import (
 	"github.com/VKCOM/noverify/src/meta"
 	"github.com/VKCOM/noverify/src/state"
 	"github.com/z7zmey/php-parser/node"
+	"github.com/z7zmey/php-parser/node/expr"
+	"github.com/z7zmey/php-parser/node/name"
 	"github.com/z7zmey/php-parser/node/stmt"
 	"github.com/z7zmey/php-parser/walker"
 )
@@ -31,6 +33,16 @@ func (m *metainfoExt) BeforeEnterNode(w walker.Walkable) {
 	state.EnterNode(m.st, w)
 
 	switch n := w.(type) {
+	case *expr.FunctionCall:
+		fsym, ok := n.Function.(*name.Name)
+		if !ok {
+			return
+		}
+		if !meta.NameEquals(fsym, "define") {
+			return
+		}
+		name := nodeToNameString(m.st, n.Arguments[0])
+		m.constValue[name] = n.Arguments[1]
 	case *stmt.Constant:
 		name := nodeToNameString(m.st, n.ConstantName)
 		m.constValue[name] = n.Expr

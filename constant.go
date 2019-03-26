@@ -58,6 +58,14 @@ func constAnd(x, y Constant) Constant {
 	}
 }
 
+func constNot(x Constant) Constant {
+	v, ok := constToBool(x)
+	if !ok {
+		return UnknownConst{}
+	}
+	return BoolConst(!v)
+}
+
 func constNegate(x Constant) Constant {
 	switch x := x.(type) {
 	case IntConst:
