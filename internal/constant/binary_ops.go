@@ -2,8 +2,10 @@ package constant
 
 // BinaryOps is a mapping of operators to the functions that implement tham.
 var BinaryOps = map[string]func(Value, Value) Value{
-	"||": Or,
-	"&&": And,
+	"||":  Or,
+	"or":  Or,
+	"&&":  And,
+	"and": And,
 
 	"+": Add,
 	"-": Sub,
@@ -15,6 +17,7 @@ var BinaryOps = map[string]func(Value, Value) Value{
 }
 
 // Or performs logical "||".
+// Also works for "or" operator.
 func Or(x, y Value) Value {
 	v1, ok1 := ToBool(x)
 	v2, ok2 := ToBool(y)
@@ -31,6 +34,7 @@ func Or(x, y Value) Value {
 }
 
 // And performs logical "&&".
+// Also works for "and" operator.
 func And(x, y Value) Value {
 	v1, ok1 := ToBool(x)
 	v2, ok2 := ToBool(y)
