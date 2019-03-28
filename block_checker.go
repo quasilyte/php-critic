@@ -4,6 +4,7 @@ import (
 	"github.com/VKCOM/noverify/src/linter"
 	"github.com/VKCOM/noverify/src/meta"
 	"github.com/VKCOM/noverify/src/state"
+	"github.com/quasilyte/php-critic/internal/constant"
 	"github.com/z7zmey/php-parser/node"
 	"github.com/z7zmey/php-parser/node/expr"
 	"github.com/z7zmey/php-parser/node/expr/binary"
@@ -69,7 +70,7 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 }
 
 func (c *blockChecker) checkBadCond(cond node.Node) bool {
-	cv, ok := constFold(c.mi, cond).(BoolConst)
+	cv, ok := constFold(c.mi, cond).(constant.BoolValue)
 	if !ok {
 		return false
 	}
@@ -162,7 +163,7 @@ func (c *blockChecker) handleBooleanOrNeqNeq(cond *binary.BooleanOr) {
 
 	x := constFold(c.mi, lhs.Right)
 	y := constFold(c.mi, rhs.Right)
-	res, ok := constEqual(x, y).(BoolConst)
+	res, ok := constant.Equal(x, y).(constant.BoolValue)
 	if ok && !bool(res) {
 		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always true condition")
 	}
@@ -183,7 +184,7 @@ func (c *blockChecker) handleBooleanAndLtGt(cond *binary.BooleanAnd) {
 
 	x := constFold(c.mi, lhs.Right)
 	y := constFold(c.mi, rhs.Right)
-	res, ok := constLessThan(x, y).(BoolConst)
+	res, ok := constant.LessThan(x, y).(constant.BoolValue)
 	if ok && bool(res) {
 		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
 	}
@@ -204,7 +205,7 @@ func (c *blockChecker) handleBooleanAndEqEq(cond *binary.BooleanAnd) {
 
 	x := constFold(c.mi, lhs.Right)
 	y := constFold(c.mi, rhs.Right)
-	res, ok := constEqual(x, y).(BoolConst)
+	res, ok := constant.Equal(x, y).(constant.BoolValue)
 	if ok && !bool(res) {
 		c.ctxt.Report(cond, linter.LevelWarning, "badCond", "always false condition")
 	}
