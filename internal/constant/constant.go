@@ -27,14 +27,37 @@ type (
 	BoolValue bool
 )
 
+// ToBool converts x constant to boolean constants following PHP conversion rules.
+// Second bool result tells whether that conversion was successful.
 func ToBool(x Value) (BoolValue, bool) {
 	switch x := x.(type) {
 	case BoolValue:
 		return x, true
 	case IntValue:
 		return BoolValue(x != 0), true
+	case FloatValue:
+		return BoolValue(x != 0), true
+	case StringValue:
+		return BoolValue(x != "" && x != "0"), true
 	}
 	return false, false
+}
+
+// ToInt converts x constant to int constants following PHP conversion rules.
+// Second bool result tells whether that conversion was successful.
+func ToInt(x Value) (IntValue, bool) {
+	switch x := x.(type) {
+	case BoolValue:
+		if x {
+			return 1, true
+		}
+		return 0, true
+	case IntValue:
+		return x, true
+	case FloatValue:
+		return IntValue(x), true
+	}
+	return 0, false
 }
 
 func (c UnknownValue) isValid() bool { return false }
