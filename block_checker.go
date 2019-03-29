@@ -136,6 +136,17 @@ func (c *blockChecker) handleSwitch(swt *stmt.Switch) {
 	}
 }
 
+func (c *blockChecker) checkDupArg(call *expr.FunctionCall, i, j int) {
+	if len(call.Arguments) <= intMax(i, j) {
+		return
+	}
+	x := call.Arguments[i]
+	y := call.Arguments[j]
+	if sameSimpleExpr(x, y) {
+		c.ctxt.Report(x, linter.LevelWarning, "dupArg", "suspiciously duplicated argument")
+	}
+}
+
 func (c *blockChecker) handleDupSubExpr(n node.Node, lhs, rhs node.Node, op string) {
 	if sameSimpleExpr(lhs, rhs) {
 		c.ctxt.Report(n, linter.LevelWarning, "dupSubExpr", "suspiciously duplicated LHS and RHS of '%s'", op)
@@ -224,13 +235,17 @@ func (c *blockChecker) handleFunctionCall(call *expr.FunctionCall) {
 		return
 	}
 
-	switch {
-	case meta.NameEquals(name, "define"):
+	switch meta.NameNodeToString(name) {
+	case "define":
 		c.checkDefine(call)
-	case meta.NameEquals(name, "strpos"):
+	case "strpos":
 		c.checkStrpos(call)
-	case meta.NameEquals(name, "strncmp"):
+		c.checkDupArg(call, 0, 1)
+	case "strncmp":
 		c.checkStrncmp(call)
+		c.checkDupArg(call, 0, 1)
+	case "strcmp", "min", "max", "str_replace":
+		c.checkDupArg(call, 0, 1)
 	}
 }
 

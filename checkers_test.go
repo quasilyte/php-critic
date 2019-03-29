@@ -174,7 +174,7 @@ func TestDefineArg3(t *testing.T) {
 		`don't use case_insensitive argument`)
 }
 
-func TestStrncmp(t *testing.T) {
+func TestBadCallStrncmp(t *testing.T) {
 	reports := multiFileReports(t, `<?php
 	/** @linter disable */
 	function strncmp($s1, $s2, $n) {}
@@ -183,14 +183,47 @@ func TestStrncmp(t *testing.T) {
 	function f($s1, $s2) {
 		$_ = strncmp($s1, $s2, 2);
 		$_ = strncmp($s2, $s1, strlen($s1));
-		$_ = strncmp($s1, "a", 0 + 1);
+		$_ = strncmp($s1, "\n\\\x11", 0+1+1+1);
 		$_ = strncmp($s1, "ab", 3); // BAD
 		$_ = strncmp("ab", $s1, 1+3); // BAD
 	}
 	`)
 	matchReports(t, reports,
-		`don't use case_insensitive argument`,
-		`don't use case_insensitive argument`)
+		`expected length arg to be 2, got 3`,
+		`expected length arg to be 2, got 4`)
+}
+
+func TestDupArgStrncmp(t *testing.T) {
+	reports := multiFileReports(t, `<?php
+	/** @linter disable */
+	function strncmp($s1, $s2, $n) {}
+	function strcmp($s1, $s2) {}
+	`, `<?php
+	function f($s1, $a) {
+		$_ = strncmp($s1, $s1, 2);
+		$_ = strncmp($a[0], $a[0], 1);
+		$_ = strncmp($a[0], $a[1], 1);
+		$_ = strcmp($s1, $s1);
+	}
+	`)
+	matchReports(t, reports,
+		`suspiciously duplicated argument`,
+		`suspiciously duplicated argument`,
+		`suspiciously duplicated argument`)
+}
+
+func TestDupArgMin(t *testing.T) {
+	reports := multiFileReports(t, `<?php
+	/** @linter disable */
+	function min(...$xs) {}
+	`, `<?php
+	function f($s1, $a) {
+		$_ = min($a);
+		$_ = min($s1, $s1);
+	}
+	`)
+	matchReports(t, reports,
+		`suspiciously duplicated argument`)
 }
 
 func singleFileReports(t *testing.T, contents string) []*linter.Report {
