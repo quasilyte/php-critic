@@ -1,5 +1,9 @@
 package constant
 
+import (
+	"strconv"
+)
+
 // Value is an arbitrary, potentially unresolved (unknown) constant.
 type Value interface {
 	isValid() bool
@@ -58,6 +62,23 @@ func ToInt(x Value) (IntValue, bool) {
 		return IntValue(x), true
 	}
 	return 0, false
+}
+
+// ToString converts x constant to string constants following PHP conversion rules.
+// Second bool result tells whether that conversion was successful.
+func ToString(x Value) (StringValue, bool) {
+	switch x := x.(type) {
+	case BoolValue:
+		if x {
+			return "1", true
+		}
+		return "", true
+	case IntValue:
+		return StringValue(strconv.FormatInt(int64(x), 10)), true
+	case StringValue:
+		return x, true
+	}
+	return "", false
 }
 
 func (c UnknownValue) isValid() bool { return false }

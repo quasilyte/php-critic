@@ -58,6 +58,8 @@ func constFold(mi *metainfoExt, e node.Node) constant.Value {
 		name := nodeToNameString(mi.st, e.Constant)
 		return constFold(mi, mi.constValue[name])
 
+	case *binary.Concat:
+		return constant.Concat(constFold(mi, e.Left), constFold(mi, e.Right))
 	case *scalar.String:
 		if isDynamicString(e) {
 			return constant.UnknownValue{}

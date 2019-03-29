@@ -7,6 +7,8 @@ var BinaryOps = map[string]func(Value, Value) Value{
 	"&&":  And,
 	"and": And,
 
+	".": Concat,
+
 	"+": Add,
 	"-": Sub,
 
@@ -17,6 +19,16 @@ var BinaryOps = map[string]func(Value, Value) Value{
 	"==":  Equal,
 	">":   GreaterThan,
 	"<":   LessThan,
+}
+
+// Concat performs string "." operation.
+func Concat(x, y Value) Value {
+	v1, ok1 := ToString(x)
+	v2, ok2 := ToString(y)
+	if ok1 && ok2 {
+		return v1 + v2
+	}
+	return UnknownValue{}
 }
 
 // Or performs logical "||".

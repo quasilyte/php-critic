@@ -202,7 +202,7 @@ func TestBadCallStrncmp(t *testing.T) {
 		$_ = strncmp($s1, $s2, 2);
 		$_ = strncmp($s2, $s1, strlen($s1));
 		$_ = strncmp($s1, "\n\\\x11", 0+1+1+1);
-		$_ = strncmp($s1, "ab", 3); // BAD
+		$_ = strncmp($s1, ''."a"."b", 3); // BAD
 		$_ = strncmp("ab", $s1, 1+3); // BAD
 	}
 	`)
