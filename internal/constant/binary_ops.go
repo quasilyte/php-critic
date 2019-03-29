@@ -94,24 +94,20 @@ func Add(x, y Value) Value {
 
 // BitOr performs bitwise "|".
 func BitOr(x, y Value) Value {
-	switch x := x.(type) {
-	case IntValue:
-		y, ok := y.(IntValue)
-		if ok {
-			return x | y
-		}
+	v1, ok1 := ToInt(x)
+	v2, ok2 := ToInt(y)
+	if ok1 && ok2 {
+		return v1 | v2
 	}
 	return UnknownValue{}
 }
 
 // BitAnd performs bitwise "&".
 func BitAnd(x, y Value) Value {
-	switch x := x.(type) {
-	case IntValue:
-		y, ok := y.(IntValue)
-		if ok {
-			return x & y
-		}
+	v1, ok1 := ToInt(x)
+	v2, ok2 := ToInt(y)
+	if ok1 && ok2 {
+		return v1 & v2
 	}
 	return UnknownValue{}
 }
