@@ -2,6 +2,7 @@ package linter
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/VKCOM/noverify/src/meta"
@@ -157,7 +158,7 @@ func (b *BlockWalker) copy() *BlockWalker {
 		ignoreFunctionBodies: b.ignoreFunctionBodies,
 	}
 	for _, createFn := range b.r.customBlock {
-		bCopy.custom = append(bCopy.custom, createFn(bCopy))
+		bCopy.custom = append(bCopy.custom, createFn(&BlockContext{w: bCopy}))
 	}
 
 	for _, c := range b.customTypes {
@@ -201,6 +202,9 @@ func varToString(v *expr.Variable) string {
 	case *expr.FunctionCall:
 		// TODO: support function calls here :)
 		return "WTF_FUNCTION_CALL"
+	case *scalar.String:
+		// Things like ${"x"}
+		return "${" + t.Value + "}"
 	default:
 		panic(fmt.Errorf("Unexpected variable VarName type: %T", t))
 	}
@@ -228,6 +232,14 @@ func (b *BlockWalker) EnterNode(w walker.Walkable) (res bool) {
 	case *stmt.Global:
 		for _, v := range s.Vars {
 			ev := v.(*expr.Variable)
+
+			// TODO: when varToString will handle Encapsed,
+			// remove this check. Encapsed is a string with potentially
+			// complex interpolation expressions.
+			if _, ok := ev.VarName.(*scalar.Encapsed); ok {
+				continue // Otherwise varToString would panic
+			}
+
 			b.addVar(ev, meta.NewTypesMap(meta.WrapGlobal(varToString(ev))), "global", true)
 			b.addNonLocalVar(ev)
 		}
@@ -299,12 +311,7 @@ func (b *BlockWalker) EnterNode(w walker.Walkable) (res bool) {
 	case *expr.Empty:
 		res = b.handleEmpty(s)
 	case *expr.Variable:
-		if !b.sc.HaveVar(s) {
-			b.r.reportUndefinedVariable(s, b.sc.MaybeHaveVar(s))
-			b.sc.AddVar(s, meta.NewTypesMap("undefined"), "undefined", true)
-		} else if id, ok := s.VarName.(*node.Identifier); ok {
-			delete(b.unusedVars, id.Value)
-		}
+		res = b.handleVariable(s)
 	case *expr.ArrayDimFetch:
 		b.checkArrayDimFetch(s)
 	case *stmt.Function:
@@ -1248,6 +1255,16 @@ func (a *andWalker) EnterNode(w walker.Walkable) (res bool) {
 func (a *andWalker) GetChildrenVisitor(key string) walker.Visitor { return a }
 func (a *andWalker) LeaveNode(w walker.Walkable)                  {}
 
+func (b *BlockWalker) handleVariable(v *expr.Variable) bool {
+	if !b.sc.HaveVar(v) {
+		b.r.reportUndefinedVariable(v, b.sc.MaybeHaveVar(v))
+		b.sc.AddVar(v, meta.NewTypesMap("undefined"), "undefined", true)
+	} else if id, ok := v.VarName.(*node.Identifier); ok {
+		delete(b.unusedVars, id.Value)
+	}
+	return false
+}
+
 func (b *BlockWalker) handleIf(s *stmt.If) bool {
 	// first condition is always executed, so run it in base context
 	if s.Cond != nil {
@@ -1259,8 +1276,20 @@ func (b *BlockWalker) handleIf(s *stmt.If) bool {
 		for _, isset := range a.issets {
 			for _, v := range isset.Variables {
 				if v, ok := v.(*expr.Variable); ok {
-					if !b.sc.HaveVar(v) {
-						b.addVar(v, meta.NewTypesMap("isset_$"+v.VarName.(*node.Identifier).Value), "isset", true)
+					if b.sc.HaveVar(v) {
+						continue
+					}
+					switch vn := v.VarName.(type) {
+					case *node.Identifier:
+						b.addVar(v, meta.NewTypesMap("isset_$"+vn.Value), "isset", true)
+						defer b.sc.DelVar(v, "isset")
+					case *expr.Variable:
+						b.handleVariable(vn)
+						name, ok := vn.VarName.(*node.Identifier)
+						if !ok {
+							continue
+						}
+						b.addVar(v, meta.NewTypesMap("isset_$$"+name.Value), "isset", true)
 						defer b.sc.DelVar(v, "isset")
 					}
 				}
@@ -1422,7 +1451,11 @@ func (b *BlockWalker) handleSwitch(s *stmt.Switch) bool {
 
 		// allow to omit "break;" in the final statement
 		if idx != len(s.Cases)-1 && bCopy.exitFlags == 0 {
-			b.r.Report(c, LevelInformation, "caseBreak", "Case without break")
+			// allow the fallthrough if appropriate comment is present
+			nextCase := s.Cases[idx+1]
+			if !b.caseHasFallthroughComment(nextCase) {
+				b.r.Report(c, LevelInformation, "caseBreak", "Add break or '// fallthrough' to the end of the case")
+			}
 		}
 
 		if (bCopy.exitFlags & (^breakFlags)) == 0 {
@@ -1698,4 +1731,26 @@ func (b *BlockWalker) LeaveNode(w walker.Walkable) {
 	for _, c := range b.custom {
 		c.AfterLeaveNode(w)
 	}
+}
+
+var fallthroughMarkerRegex = func() *regexp.Regexp {
+	markers := []string{
+		"fallthrough",
+		"fall through",
+		"falls through",
+		"no break",
+	}
+
+	pattern := `(?:/\*|//)\s?(?:` + strings.Join(markers, `|`) + `)`
+	return regexp.MustCompile(pattern)
+}()
+
+func (b *BlockWalker) caseHasFallthroughComment(n node.Node) bool {
+	for _, comment := range b.r.comments[n] {
+		str := comment.String()
+		if fallthroughMarkerRegex.MatchString(str) {
+			return true
+		}
+	}
+	return false
 }

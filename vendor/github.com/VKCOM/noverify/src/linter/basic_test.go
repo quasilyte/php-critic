@@ -33,6 +33,109 @@ func TestArrayLiteral(t *testing.T) {
 	}
 }
 
+func TestIssetVarVar4(t *testing.T) {
+	reports := getReportsSimple(t, `<?php
+	function issetVarVar() {
+		if (isset($$$$x)) {
+			$_ = $$$$x; // Can't track this level of indirection
+		}
+	}
+	`)
+
+	// This is more TODO/FIXME like test.
+	// Right now arbitrary-depth indirection is not handled.
+	// It's not obvious whether we should handle it, since
+	// variable-variable-variable code is a bad thing to write.
+	//
+	// But at least we should not go into panic on it.
+
+	if !hasReport(reports, "Unknown variable variable $$$x used") {
+		t.Errorf("No error about unkown $$$x")
+	}
+	if !hasReport(reports, "Unknown variable variable $$$$x used") {
+		t.Errorf("No error about undefined $$$$x")
+	}
+
+	for _, r := range reports {
+		log.Printf("%s", r)
+	}
+}
+
+func TestIssetVarVar3(t *testing.T) {
+	// Test that irrelevant isset of variable-variable doesn't affect
+	// other variables. Also warn for undefined variable in $$x.
+	reports := getReportsSimple(t, `<?php
+	function issetVarVar() {
+		if (isset($$x)) {
+			$_ = $$y;
+		}
+	}
+	`)
+
+	if len(reports) != 2 {
+		t.Errorf("Unexpected number of reports: expected 2, got %d", len(reports))
+	}
+
+	if !hasReport(reports, "Undefined variable: x") {
+		t.Errorf("No error about undefined $x")
+	}
+	if !hasReport(reports, "Unknown variable variable $$y used") {
+		t.Errorf("No error about undefined $$y")
+	}
+
+	for _, r := range reports {
+		log.Printf("%s", r)
+	}
+}
+
+func TestIssetVarVar2(t *testing.T) {
+	// Test that if $x is defined, it doesn't make $$x defined.
+	reports := getReportsSimple(t, `<?php
+	function issetVarVar() {
+		if (isset($x)) {
+			$_ = $x;  // $x is defined
+			$_ = $$x; // But $$x is not
+		}
+	}
+	`)
+
+	if !hasReport(reports, "Unknown variable variable $$x used") {
+		t.Errorf("No error about $$x")
+	}
+
+	for _, r := range reports {
+		log.Printf("%s", r)
+	}
+}
+
+func TestIssetVarVar1(t *testing.T) {
+	// Test that defined variable variable don't cause "undefined" warnings.
+	reports := getReportsSimple(t, `<?php
+	function issetVarVar() {
+		$x = 'key';
+		if (isset($$x)) {
+			$_ = $x + 1;  // If $$x is isset, then $x is set as well
+			$_ = $$x + 1;
+			$_ = $y;      // Undefined
+		}
+		// After the block all vars are undefined again.
+		$_ = $x;
+	}
+	`)
+
+	if len(reports) != 1 {
+		t.Errorf("Unexpected number of reports: expected 1, got %d", len(reports))
+	}
+
+	if !hasReport(reports, "Undefined variable: y") {
+		t.Errorf("No error about undefined variable y")
+	}
+
+	for _, r := range reports {
+		log.Printf("%s", r)
+	}
+}
+
 func TestUnused(t *testing.T) {
 	reports := getReportsSimple(t, `<?php
 	function unused_test($arg1, $arg2) {
@@ -246,23 +349,68 @@ func TestFunctionThrowsExceptionsAndReturns(t *testing.T) {
 	}
 }
 
+func TestSwitchFallthrough(t *testing.T) {
+	reports := getReportsSimple(t, `<?php
+	function withFallthrough($a) {
+		switch ($a) {
+		case 1:
+			echo "1\n";
+			// With prepended comment line.
+			// fallthrough
+		case 2:
+			echo "2\n";
+			// falls through and continue rolling
+		case 3:
+			echo "3\n";
+			/* fallthrough and blah-blah */
+		case 4:
+			echo "4\n";
+			/* falls through */
+		default:
+			echo "Other\n";
+		}
+	}
+	`)
+
+	if len(reports) != 0 {
+		t.Errorf("Unexpected number of reports: expected 0, got %d", len(reports))
+	}
+
+	for _, r := range reports {
+		log.Printf("%s", r)
+	}
+}
+
 func TestSwitchBreak(t *testing.T) {
 	reports := getReportsSimple(t, `<?php
-	function doSomething($a) {
+	function bad($a) {
+		switch ($a) {
+		case 1:
+			echo "One\n"; // Bad, no break.
+		default:
+			echo "Other\n";
+		}
+	}
+
+	function good($a) {
 		switch ($a) {
 		case 1:
 			echo "One\n";
 			break;
-		default:
+		case 2:
 			echo "Two";
-			break;
+			// No break, but still good, since it's the last case clause.
 		}
 
 		echo "Three";
 	}`)
 
-	if len(reports) != 0 {
-		t.Errorf("Unexpected number of reports: expected 0, got %d", len(reports))
+	if len(reports) != 1 {
+		t.Errorf("Unexpected number of reports: expected 1, got %d", len(reports))
+	}
+
+	if !hasReport(reports, "Add break or '// fallthrough' to the end of the case") {
+		t.Errorf("No error about case without break")
 	}
 
 	for _, r := range reports {
@@ -495,4 +643,14 @@ func TestMixedArrayKeys(t *testing.T) {
 	for _, r := range reports {
 		log.Printf("%s", r)
 	}
+}
+
+func TestStringGlobalVarName(t *testing.T) {
+	// Should not panic.
+
+	testParse(t, `first.php`, `<?php
+	function f() {
+		global ${"x"};
+		global ${"${x}_{$x}"};
+	}`)
 }
