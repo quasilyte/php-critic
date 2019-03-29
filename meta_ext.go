@@ -12,7 +12,7 @@ import (
 )
 
 type metainfoExt struct {
-	ctxt linter.BlockContext
+	ctxt *linter.BlockContext
 
 	st *meta.ClassParseState
 

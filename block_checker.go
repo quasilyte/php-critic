@@ -15,7 +15,7 @@ import (
 )
 
 type blockChecker struct {
-	ctxt linter.BlockContext
+	ctxt *linter.BlockContext
 	mi   *metainfoExt
 }
 
@@ -229,6 +229,35 @@ func (c *blockChecker) handleFunctionCall(call *expr.FunctionCall) {
 		c.checkDefine(call)
 	case meta.NameEquals(name, "strpos"):
 		c.checkStrpos(call)
+	case meta.NameEquals(name, "strncmp"):
+		c.checkStrncmp(call)
+	}
+}
+
+func (c *blockChecker) checkStrncmp(strncmp *expr.FunctionCall) {
+	if len(strncmp.Arguments) != 3 {
+		return
+	}
+	cv1, ok1 := constFold(c.mi, strncmp.Arguments[0]).(constant.StringValue)
+	cv2, ok2 := constFold(c.mi, strncmp.Arguments[1]).(constant.StringValue)
+	validLen := 0
+	switch {
+	case ok1 && ok2:
+		validLen = intMin(len(cv1), len(cv2))
+	case ok1:
+		validLen = len(cv1)
+	case ok2:
+		validLen = len(cv2)
+	default:
+		return
+	}
+	length, ok := constFold(c.mi, strncmp.Arguments[2]).(constant.IntValue)
+	if !ok {
+		return
+	}
+	if int(length) != validLen {
+		c.ctxt.Report(strncmp.Arguments[2], linter.LevelWarning, "badCall",
+			"expected length arg to be %d, got %d", validLen, length)
 	}
 }
 

@@ -120,3 +120,10 @@ func sameSimpleExpr(a, b node.Node) bool {
 	}
 	return false
 }
+
+func intMin(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
