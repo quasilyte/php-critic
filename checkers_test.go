@@ -146,6 +146,24 @@ func TestBadCondOr(t *testing.T) {
 		`always true condition`)
 }
 
+func TestSimplifyStrcmp(t *testing.T) {
+	reports := multiFileReports(t, `<?php
+	/** @linter disable */
+	function strcmp($s1, $s2) {};
+	`, `<?php
+	function f($s1, $s2) {
+		$_ = strcmp($s1, $s2) === 0;
+		$_ = strcmp($s1, $s2) < 0;
+		$_ = strcmp($s1, $s2) > 0;
+	}
+	`)
+
+	matchReports(t, reports,
+		`can replace 'strcmp(s1, s2) === 0' with 's1 === s2'`,
+		`can replace 'strcmp(s1, s2) < 0' with 's1 < s2'`,
+		`can replace 'strcmp(s1, s2) > 0' with 's1 > s2'`)
+}
+
 func TestArgOrder(t *testing.T) {
 	reports := multiFileReports(t, `<?php
 	/** @linter disable */

@@ -44,16 +44,19 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 		c.handleDupSubExpr(n, n.Left, n.Right, "!=")
 	case *binary.Identical:
 		c.handleDupSubExpr(n, n.Left, n.Right, "===")
+		c.handleIdentical(n)
 	case *binary.Equal:
 		c.handleDupSubExpr(n, n.Left, n.Right, "==")
 	case *binary.Smaller:
 		c.handleDupSubExpr(n, n.Left, n.Right, "<")
+		c.handleSmaller(n)
 	case *binary.SmallerOrEqual:
 		c.handleDupSubExpr(n, n.Left, n.Right, "<=")
 	case *binary.GreaterOrEqual:
 		c.handleDupSubExpr(n, n.Left, n.Right, ">=")
 	case *binary.Greater:
 		c.handleDupSubExpr(n, n.Left, n.Right, ">")
+		c.handleGreater(n)
 	case *binary.BooleanAnd:
 		c.handleBooleanAnd(n)
 	case *binary.BooleanOr:
@@ -66,6 +69,40 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 		c.handleDoWhile(n)
 	case *stmt.Switch:
 		c.handleSwitch(n)
+	}
+}
+
+func (c *blockChecker) handleGreater(cmp *binary.Greater) {
+	cv, ok := constFold(c.mi, cmp.Right).(constant.IntValue)
+	if ok && cv == 0 {
+		strcmp, ok := cmp.Left.(*expr.FunctionCall)
+		if ok && meta.NameNodeToString(strcmp.Function) == "strcmp" {
+			c.ctxt.Report(cmp, linter.LevelDoNotReject, "simplify",
+				"can replace 'strcmp(s1, s2) > 0' with 's1 > s2'")
+		}
+	}
+}
+
+func (c *blockChecker) handleSmaller(cmp *binary.Smaller) {
+	cv, ok := constFold(c.mi, cmp.Right).(constant.IntValue)
+	if ok && cv == 0 {
+		strcmp, ok := cmp.Left.(*expr.FunctionCall)
+		if ok && meta.NameNodeToString(strcmp.Function) == "strcmp" {
+			c.ctxt.Report(cmp, linter.LevelDoNotReject, "simplify",
+				"can replace 'strcmp(s1, s2) < 0' with 's1 < s2'")
+		}
+	}
+}
+
+func (c *blockChecker) handleIdentical(eq *binary.Identical) {
+	cv, ok := constFold(c.mi, eq.Right).(constant.IntValue)
+	if ok && cv == 0 {
+		// Handle `strcmp($s1, $s2) === 0`.
+		strcmp, ok := eq.Left.(*expr.FunctionCall)
+		if ok && meta.NameNodeToString(strcmp.Function) == "strcmp" {
+			c.ctxt.Report(eq, linter.LevelDoNotReject, "simplify",
+				"can replace 'strcmp(s1, s2) === 0' with 's1 === s2'")
+		}
 	}
 }
 
