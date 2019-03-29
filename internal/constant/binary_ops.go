@@ -10,6 +10,9 @@ var BinaryOps = map[string]func(Value, Value) Value{
 	"+": Add,
 	"-": Sub,
 
+	"|": BitOr,
+	"&": BitAnd,
+
 	"===": Identical,
 	"==":  Equal,
 	">":   GreaterThan,
@@ -84,6 +87,30 @@ func Add(x, y Value) Value {
 		y, ok := y.(StringValue)
 		if ok {
 			return x + y
+		}
+	}
+	return UnknownValue{}
+}
+
+// BitOr performs bitwise "|".
+func BitOr(x, y Value) Value {
+	switch x := x.(type) {
+	case IntValue:
+		y, ok := y.(IntValue)
+		if ok {
+			return x | y
+		}
+	}
+	return UnknownValue{}
+}
+
+// BitAnd performs bitwise "&".
+func BitAnd(x, y Value) Value {
+	switch x := x.(type) {
+	case IntValue:
+		y, ok := y.(IntValue)
+		if ok {
+			return x & y
 		}
 	}
 	return UnknownValue{}
