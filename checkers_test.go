@@ -12,6 +12,16 @@ import (
 	"github.com/z7zmey/php-parser/node"
 )
 
+func filterReports(reports []*linter.Report, key string) []*linter.Report {
+	var out []*linter.Report
+	for _, r := range reports {
+		if r.CheckName() == key {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 func TestDupBranchBody(t *testing.T) {
 	reports := singleFileReports(t, `<?php
 	function f() {}
@@ -46,6 +56,7 @@ func TestDupSubExpr(t *testing.T) {
 	$_ = $i % $i;
 	`)
 
+	reports = filterReports(reports, "dupSubExpr")
 	matchReports(t, reports,
 		`suspiciously duplicated LHS and RHS of '=='`,
 		`suspiciously duplicated LHS and RHS of '=='`,
@@ -67,6 +78,7 @@ func TestBadCondSwitch(t *testing.T) {
 
 	matchReports(t, reports,
 		`always false condition`,
+		`always false condition`,
 		`always true condition`)
 }
 
@@ -78,11 +90,28 @@ func TestBadCondWhile(t *testing.T) {
 	while (11-1 == 9+1) {}
 	do {} while (true); // Not OK
 	while (true) {} // OK
+	while (0 === 0) {} // Not OK
 	`)
+
+	reports = filterReports(reports, "badCond")
+	matchReports(t, reports,
+		`always false condition`,
+		`always false condition`,
+		`always true condition`,
+		`always true condition`,
+		`always true condition`)
+}
+
+func TestBadCondCall(t *testing.T) {
+	reports := singleFileReports(t, `<?php
+	function strlen($s) {}
+	function f() {
+		$_ = strlen("1") === 2; // Always false
+		$_ = strlen("❤️") === 6; // Always true
+	}`)
 
 	matchReports(t, reports,
 		`always false condition`,
-		`always true condition`,
 		`always true condition`)
 }
 
@@ -96,6 +125,7 @@ func TestBadCondIf(t *testing.T) {
 	`)
 
 	matchReports(t, reports,
+		`always false condition`,
 		`always false condition`,
 		`always true condition`)
 }
@@ -112,6 +142,8 @@ func TestBadCondAndConst(t *testing.T) {
 
 	matchReports(t, reports,
 		`always false condition`,
+		`always false condition`,
+		`always true condition`,
 		`always true condition`)
 }
 

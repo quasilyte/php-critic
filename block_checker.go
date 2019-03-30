@@ -39,22 +39,30 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 	case *binary.Minus:
 		c.handleDupSubExpr(n, n.Left, n.Right, "-")
 	case *binary.NotIdentical:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, "!==")
 	case *binary.NotEqual:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, "!=")
 	case *binary.Identical:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, "===")
 		c.handleIdentical(n)
 	case *binary.Equal:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, "==")
 	case *binary.Smaller:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, "<")
 		c.handleSmaller(n)
 	case *binary.SmallerOrEqual:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, "<=")
 	case *binary.GreaterOrEqual:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, ">=")
 	case *binary.Greater:
+		c.checkBadCond(n)
 		c.handleDupSubExpr(n, n.Left, n.Right, ">")
 		c.handleGreater(n)
 	case *binary.BooleanAnd:
@@ -63,8 +71,6 @@ func (c *blockChecker) BeforeEnterNode(w walker.Walkable) {
 		c.handleBooleanOr(n)
 	case *stmt.If:
 		c.handleIf(n)
-	case *stmt.While:
-		c.handleWhile(n)
 	case *stmt.Do:
 		c.handleDoWhile(n)
 	case *stmt.Switch:
@@ -120,15 +126,6 @@ func (c *blockChecker) checkBadCond(cond node.Node) bool {
 }
 
 func (c *blockChecker) handleIf(ifstmt *stmt.If) {
-	// Recognize `if (false) {}` and skip it.
-	ifFalse := false
-	if fetch, ok := ifstmt.Cond.(*expr.ConstFetch); ok {
-		ifFalse = meta.NameNodeToString(fetch.Constant) == "false"
-	}
-	if !ifFalse {
-		c.checkBadCond(ifstmt.Cond)
-	}
-
 	bodies := make([]node.Node, 0, 2+len(ifstmt.ElseIf))
 	bodies = append(bodies, ifstmt.Stmt)
 	for _, elseif := range ifstmt.ElseIf {
@@ -145,17 +142,6 @@ func (c *blockChecker) handleIf(ifstmt *stmt.If) {
 					"duplicated <%d> and <%d> bodies", i, j)
 			}
 		}
-	}
-}
-
-func (c *blockChecker) handleWhile(while *stmt.While) {
-	// Recognize `while (true) {}` and skip it.
-	whileTrue := false
-	if fetch, ok := while.Cond.(*expr.ConstFetch); ok {
-		whileTrue = meta.NameNodeToString(fetch.Constant) == "true"
-	}
-	if !whileTrue {
-		c.checkBadCond(while.Cond)
 	}
 }
 

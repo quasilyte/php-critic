@@ -58,6 +58,19 @@ func constFold(mi *metainfoExt, e node.Node) constant.Value {
 		name := nodeToNameString(mi.st, e.Constant)
 		return constFold(mi, mi.constValue[name])
 
+	case *expr.FunctionCall:
+		switch meta.NameNodeToString(e.Function) {
+		case "strlen":
+			if len(e.Arguments) != 1 {
+				return constant.UnknownValue{}
+			}
+			s, ok := constFold(mi, e.Arguments[0]).(constant.StringValue)
+			if !ok {
+				return constant.UnknownValue{}
+			}
+			return constant.IntValue(len(s))
+		}
+
 	case *binary.Concat:
 		return constant.Concat(constFold(mi, e.Left), constFold(mi, e.Right))
 	case *scalar.String:
@@ -81,6 +94,7 @@ func constFold(mi *metainfoExt, e node.Node) constant.Value {
 			return constant.IntValue(v)
 		}
 	}
+
 	return constant.UnknownValue{}
 }
 
